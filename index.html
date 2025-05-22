@@ -1,0 +1,170 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ball Game with Fases</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #111; }
+    canvas { display: block; background: #222; }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+class Ball {
+  constructor(x, y, radius, color) {
+    this.x = x;
+    this.y = y;
+    this.radius = radius;
+    this.color = color;
+    this.vy = 2 + Math.random() * 2;
+    this.saved = false;
+  }
+
+  reset(x, y) {
+    this.x = x;
+    this.y = y;
+    this.vy = 2 + Math.random() * 2;
+    this.saved = false;
+  }
+
+  update() {
+    if (!this.saved) {
+      this.y += this.vy;
+    }
+  }
+
+  draw(offsetX = 0) {
+    ctx.beginPath();
+    ctx.arc(this.x + offsetX, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+  }
+}
+
+class BlueBar {
+  constructor(x, y, width, height) {
+    this.baseX = x;
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+    this.angle = 0;
+  }
+
+  update() {
+    this.angle += 0.02;
+    this.x = this.baseX + Math.sin(this.angle) * 50;
+  }
+
+  draw(offsetX = 0) {
+    ctx.fillStyle = 'blue';
+    ctx.fillRect(this.x + offsetX, this.y, this.width, this.height);
+  }
+}
+
+const balls = [];
+for (let i = 0; i < 10; i++) {
+  balls.push(new Ball(100 + i * 50, 50, 20, 'white'));
+}
+
+let fases = [
+  [ new BlueBar(200, canvas.height / 2, 150, 20), new BlueBar(500, canvas.height / 3, 150, 20) ],
+  [ new BlueBar(300, canvas.height / 1.5, 200, 20), new BlueBar(700, canvas.height / 4, 200, 20) ]
+];
+
+let currentFase = 0;
+let bars = fases[currentFase];
+let greenLineY = canvas.height - 50;
+let greenLineColor = 'green';
+let gameOver = false;
+let swiping = false;
+let swipeOffset = 0;
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (swiping) {
+    swipeOffset -= 20;
+    if (swipeOffset <= -canvas.width) {
+      swiping = false;
+      swipeOffset = 0;
+      bars = fases[currentFase];
+      balls.forEach((ball, i) => {
+        ball.reset(100 + i * 50, 50);
+      });
+      greenLineColor = 'green';
+      gameOver = false;
+    }
+  }
+
+  bars.forEach(bar => {
+    bar.update();
+    bar.draw(swipeOffset);
+  });
+
+  ctx.fillStyle = greenLineColor;
+  ctx.fillRect(swipeOffset, greenLineY, canvas.width, 10);
+
+  let remainingBalls = balls.filter(b => !b.saved);
+
+  balls.forEach(ball => {
+    if (!ball.saved) {
+      bars.forEach(bar => {
+        if (ball.x + swipeOffset > bar.x && ball.x + swipeOffset < bar.x + bar.width &&
+            ball.y + ball.radius > bar.y && ball.y - ball.radius < bar.y + bar.height) {
+          ball.vy = -ball.vy * 0.8;
+        }
+      });
+
+      if (ball.y + ball.radius >= greenLineY) {
+        ball.saved = true;
+      }
+    }
+    ball.update();
+    ball.draw(swipeOffset);
+  });
+
+  if (remainingBalls.length === 1 && !gameOver) {
+    greenLineColor = 'red';
+    gameOver = true;
+
+    setTimeout(() => {
+      showLosingBall(remainingBalls[0]);
+    }, 2000);
+  }
+
+  requestAnimationFrame(animate);
+}
+
+function showLosingBall(ball) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+  ctx.arc(canvas.width / 2, canvas.height / 2, 100, 0, Math.PI * 2);
+  ctx.fillStyle = 'red';
+  ctx.fill();
+
+  setTimeout(() => {
+    nextFase();
+  }, 2000);
+}
+
+function nextFase() {
+  currentFase++;
+  if (currentFase < fases.length) {
+    swiping = true;
+  } else {
+    alert("Game Over! All fases completed!");
+  }
+}
+
+animate();
+</script>
+</body>
+</html>

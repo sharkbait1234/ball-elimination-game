@@ -50,10 +50,10 @@ for (let i = 0; i < 10; i++) {
 }
 
 const obstacles = [];
-for (let i = 0; i < 4; i++) {
+for (let i = 0; i < 9; i++) {  // Now 9 obstacles
   obstacles.push({
-    x: 100 + i * 150,
-    y: 200 + i * 50,
+    x: 100 + i * 120,
+    y: 200 + (i % 3) * 100,
     width: 100,
     height: 10,
     angle: 0,
@@ -70,12 +70,42 @@ function startTransition() {
   transitioning = true;
 }
 
+function checkCollision(ball, obs) {
+  // AABB collision for simplicity
+  let cos = Math.cos(obs.angle);
+  let sin = Math.sin(obs.angle);
+  
+  // rotate ball position to obstacle's axis
+  let relX = ball.x - obs.x;
+  let relY = ball.y - obs.y;
+  
+  let rotatedX = relX * cos + relY * sin;
+  let rotatedY = relY * cos - relX * sin;
+
+  let hw = obs.width / 2;
+  let hh = obs.height / 2;
+
+  if (rotatedX > -hw - ball.radius && rotatedX < hw + ball.radius &&
+      rotatedY > -hh - ball.radius && rotatedY < hh + ball.radius) {
+    
+    // simple bounce effect
+    ball.vy *= -BOUNCINESS;
+    ball.vx *= FRICTION;
+    
+    // move ball up so it doesn’t stay stuck
+    ball.y -= 5;
+  }
+}
+
 function updatePhysics(ball) {
   if (ball.saved) return;
 
   ball.vy += GRAVITY;
   ball.x += ball.vx;
   ball.y += ball.vy;
+
+  // Check collision with obstacles
+  obstacles.forEach(obs => checkCollision(ball, obs));
 
   // Check collision with green line
   if (ball.y + ball.radius >= greenLineY) {
@@ -95,9 +125,15 @@ function updatePhysics(ball) {
 
 function updateObstacles() {
   obstacles.forEach(obs => {
-    obs.x += Math.sin(Date.now() * 0.001) * obs.speedX;
-    obs.y += Math.cos(Date.now() * 0.001) * obs.speedY;
+    obs.x += Math.sin(Date.now() * 0.001 + obs.speedX) * obs.speedX;
+    obs.y += Math.cos(Date.now() * 0.001 + obs.speedY) * obs.speedY;
     obs.angle += obs.rotationSpeed * 0.01;
+
+    // Keep obstacles inside canvas
+    if (obs.x < 0) obs.x = canvas.width;
+    if (obs.x > canvas.width) obs.x = 0;
+    if (obs.y < 0) obs.y = canvas.height / 2;
+    if (obs.y > canvas.height / 2) obs.y = 0;
   });
 }
 
@@ -109,7 +145,6 @@ function animate() {
     if (transitionX <= -canvas.width) {
       transitioning = false;
       transitionX = 0;
-      // Reset game or go to next phase here
       alert('Next phase starts!');
     }
   }
@@ -142,7 +177,7 @@ function animate() {
     ctx.fill();
   });
 
-  // Show losing ball in center
+  // Show losing ball
   if (savedBalls.length === 9) {
     let loser = balls.find(b => !b.saved);
     if (loser) {
